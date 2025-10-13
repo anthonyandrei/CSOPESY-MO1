@@ -1,4 +1,4 @@
-## Member 1: 
+## Member 1: Andrei
 **Role:** Command-line Parser & Configuration Handler  
 
 ### Responsibilities
