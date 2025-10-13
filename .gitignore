@@ -1,0 +1,71 @@
+# C++ build and IDE files
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+*.out
+*.app
+*.lib
+*.a
+*.lo
+*.suo
+*.pdb
+*.idb
+*.class
+*.psess
+*.vsp
+*.ncb
+*.user
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.ipch
+*.cache
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+*.dbmdl
+*.pidb
+*.suo
+*.sln.docstates
+*.vcxproj.user
+*.vcxproj.filters
+*.code-workspace
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build/
+
+# Qt
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.pro.user
+*.qbs.user
+*.qbs.user.*
+*.qtc
+*.qch
+*.qmlc
+*.jsc
+*.rcc
+
+# CLion
+.idea/
+*.iml
+cmake-build-*/
+
+# Visual Studio Code
+.vscode/
+
+# Mac OS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
