@@ -24,7 +24,7 @@
 
 ---
 
-## Member 2: 
+## Member 2: Lance Desmond Labarrete
 **Role:** Process Management & Virtual Screen Interface  
 
 ### Responsibilities
