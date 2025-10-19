@@ -114,7 +114,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
             return;
         }
 
-        cout << "[initialize] Reading config.txt..." << endl;
+        if (verboseMode) cout << "[DEBUG] Reading config.txt..." << endl;
         ifstream configFile("config.txt");
         if (!configFile.is_open()) {
             cout << "Error: config.txt not found!" << endl;
