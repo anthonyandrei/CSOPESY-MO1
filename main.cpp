@@ -19,6 +19,7 @@ struct Config {
 
 Config config;
 bool isInitialized = false;
+bool verboseMode = true;
 
 // Show startup greeting
 void showGreeting() {
@@ -129,27 +130,27 @@ void handleCommand(const string command, const string param, bool& isRunning) {
         cout << "Configuration loaded successfully." << endl;
     }
     else if (command == "screen") {
-        cout << "[screen] Command received with param: " << param << endl;
+        cout << "[DEBUG] Command "<< command <<" received with param: " << param << endl;
         // TODO: implement screen logic
         auto [subcommand, subparam] = parseCommand(param);
         if (subcommand == "-s") {
-
+            cout << "[DEBUG] -s subcommand with param: " << subparam << endl;
         } else if (subcommand == "-r") {
-
+            cout << "[DEBUG] -r subcommand with param: " << subparam << endl;
         } else if (subcommand == "-ls") {
-
+            cout << "[DEBUG] -ls subcommand with param: " << subparam << endl;
         }
     }
     else if (command == "scheduler-start") {
-        cout << "[scheduler-start] Starting scheduler..." << endl;
+        cout << "[DEBUG] Starting scheduler..." << endl;
         // TODO: link to scheduler module
     }
     else if (command == "scheduler-stop") {
-        cout << "[scheduler-stop] Stopping scheduler..." << endl;
+        cout << "[DEBUG] Stopping scheduler..." << endl;
         // TODO: link to scheduler stop
     }
     else if (command == "report-util") {
-        cout << "[report-util] Generating report..." << endl;
+        cout << "[DEBUG] Generating report..." << endl;
         // TODO: call report generator
     }
     else {
