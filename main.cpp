@@ -5,8 +5,21 @@
 #include <fstream>
 #include <cstdint>
 
+//adding for task 3 - leomarc
+#include <thread>
+#include <atomic>
+#include <vector>
+#include <list>
+#include <optional>
+#include <mutex>
+#include <cstdlib>
+#include <ctime>
+#include "scheduler.h" 
+
 using namespace std;
 
+/* we get it from scheduler h
+not fully deleting in case i break it?  -lmrc
 struct Config {
     int numCPU = 0;
     string scheduler;
@@ -15,7 +28,7 @@ struct Config {
     uint32_t minIns = 0;
     uint32_t maxIns = 0;
     uint32_t delaysPerExec = 0;
-};
+};*/
 
 Config config;
 bool isInitialized = false;
@@ -56,6 +69,11 @@ void initializeConfig(ifstream& configFile) {
     while (configFile >> key) {
         if (key == "num-cpu") {
             configFile >> config.numCPU;
+
+            //adding to tell scheduler how many to create -lmrc
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            cpu_cores.resize(config.numCPU);
+
         } else if (key == "scheduler") {
             configFile >> config.scheduler;
         } else if (key == "quantum-cycles") {
@@ -145,10 +163,16 @@ void handleCommand(const string command, const string param, bool& isRunning) {
     else if (command == "scheduler-start") {
         if (verboseMode) cout << "[DEBUG] Starting scheduler..." << endl;
         // TODO: link to scheduler module
+        //done
+        start_process_generation();
+        cout << "Process generation started." << endl;
     }
     else if (command == "scheduler-stop") {
         if (verboseMode) cout << "[DEBUG] Stopping scheduler..." << endl;
         // TODO: link to scheduler stop
+        //done
+        stop_process_generation();
+        cout << "Process generation stopped." << endl;
     }
     else if (command == "report-util") {
         if (verboseMode) cout << "[DEBUG] Generating report..." << endl;
@@ -162,6 +186,10 @@ void handleCommand(const string command, const string param, bool& isRunning) {
 int main() {
     bool isRunning = true;
     string input;
+
+    srand(static_cast<unsigned int>(time(nullptr))); // seed random numbers
+    // if we dont do this the randomness isn't true random if ran on the same system (?)
+    start_scheduler_thread(); // start background thread -lmrc
 
     showGreeting();
 
