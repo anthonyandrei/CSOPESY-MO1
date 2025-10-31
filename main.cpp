@@ -45,7 +45,29 @@ void showGreeting() {
     cout << "Tan, Anthony Andrei C.\n";
     cout << "Last updated: October 31, 2025\n";
     cout << "-------------------------------------\n";
-    cout << "Type 'initialize' to start, or 'exit' to quit.\n\n";
+    cout << "Type 'initialize' to start, or 'help' for commands.\n\n";
+}
+
+/**
+ * @brief Display available commands and usage
+ * 
+ * Shows list of all supported commands with brief descriptions.
+ */
+void showHelp() {
+    cout << "\nAvailable Commands:\n";
+    cout << "==================\n";
+    cout << "initialize            - Load config.txt and start scheduler\n";
+    cout << "screen -s <name>      - Create new process with given name\n";
+    cout << "screen -r <name>      - Attach to process console\n";
+    cout << "screen -ls            - List all processes and their states\n";
+    cout << "scheduler-start       - Begin periodic process generation\n";
+    cout << "scheduler-stop        - Stop periodic process generation\n";
+    cout << "report-util           - Display CPU utilization report\n";
+    cout << "help                  - Show this help message\n";
+    cout << "exit                  - Exit emulator\n";
+    cout << "\nInside process screen:\n";
+    cout << "  process-smi         - Show process info and variables\n";
+    cout << "  exit                - Return to main menu\n\n";
 }
 
 /**
@@ -176,7 +198,7 @@ bool isValidConfig(const Config& config) {
  */
 void handleCommand(const string command, const string param, bool& isRunning) {
     // Initialization guard (specs requirement)
-    if (!isInitialized && command != "initialize" && command != "exit") {
+    if (!isInitialized && command != "initialize" && command != "exit" && command != "help") {
         cout << "Error: Emulator not initialized. Please run 'initialize' first." << endl;
         return;
     }
@@ -184,7 +206,10 @@ void handleCommand(const string command, const string param, bool& isRunning) {
     if (command == "exit") {
         cout << "Exiting CSOPESY Emulator..." << endl;
         isRunning = false;
-    } 
+    }
+    else if (command == "help") {
+        showHelp();
+    }
     else if (command == "initialize") {
         // Prevent double initialization
         if (isInitialized) {
