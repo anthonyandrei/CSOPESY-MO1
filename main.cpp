@@ -17,11 +17,22 @@
 
 using namespace std;
 
-Config config;
-bool isInitialized = false;
-bool verboseMode = true;
+// ============================================================================
+// Global state
+// ============================================================================
+Config config;                  ///< System configuration (loaded from config.txt)
+bool isInitialized = false;     ///< Initialization guard (prevents commands before setup)
+bool verboseMode = true;        ///< Enable debug output
 
-// Show startup greeting
+// ============================================================================
+// Helper functions
+// ============================================================================
+
+/**
+ * @brief Display startup greeting banner
+ * 
+ * Shows emulator title, team member names, and initial instructions.
+ */
 void showGreeting() {
     cout << "=====================================\n";
     cout << "          CSOPESY OS Emulator        \n";
@@ -32,19 +43,32 @@ void showGreeting() {
     cout << "Labarrete, Lance\n";
     cout << "Soan, Brent Jan\n";
     cout << "Tan, Anthony Andrei C.\n";
-    cout << "Last updated: [date]\n";
+    cout << "Last updated: October 31, 2025\n";
     cout << "-------------------------------------\n";
     cout << "Type 'initialize' to start, or 'exit' to quit.\n\n";
 }
 
-// Trim leading spaces
+/**
+ * @brief Trim leading whitespace from string (in-place)
+ * @param s String to modify
+ * 
+ * Removes all leading spaces, tabs, newlines, etc.
+ */
 void trimLeadingSpaces(string& s) {
     size_t i = 0;
     while (i < s.size() && isspace(static_cast<unsigned char>(s[i]))) ++i;
     if (i) s.erase(0, i);
 }
 
-// Parse user input into command and parameter
+/**
+ * @brief Parse user input into command and parameter
+ * @param input Raw input line from user
+ * @return Pair of (command, parameter)
+ * 
+ * Example:
+ *   "screen -s process1" -> ("screen", "-s process1")
+ *   "initialize" -> ("initialize", "")
+ */
 pair<string, string> parseCommand(const string& input) {
     stringstream ss(input);
     string command, param;
@@ -54,6 +78,22 @@ pair<string, string> parseCommand(const string& input) {
     return make_pair(command, param);
 }
 
+/**
+ * @brief Read and parse config.txt into global Config struct
+ * @param configFile Open file stream to config.txt
+ * 
+ * Expected format (one key-value pair per line):
+ *   num-cpu <value>
+ *   scheduler <fcfs|rr>
+ *   quantum-cycles <value>
+ *   batch-process-freq <value>
+ *   min-ins <value>
+ *   max-ins <value>
+ *   delays-per-exec <value>
+ * 
+ * Unknown keys are skipped with a warning.
+ * See specs pg. 4-5 for parameter ranges.
+ */
 void initializeConfig(ifstream& configFile) {
     string key;
 
@@ -61,7 +101,7 @@ void initializeConfig(ifstream& configFile) {
         if (key == "num-cpu") {
             configFile >> config.numCPU;
 
-            //adding to tell scheduler how many to create -lmrc
+            // Resize CPU core array (thread-safe via mutex)
             std::lock_guard<std::mutex> lock(queue_mutex);
             cpu_cores.resize(config.numCPU);
 
@@ -78,7 +118,7 @@ void initializeConfig(ifstream& configFile) {
         } else if (key == "delays-per-exec") {
             configFile >> config.delaysPerExec;
         } else {
-            // Skip one token (the value) and continue
+            // Skip unknown keys (consume value token and continue)
             string skip;
             if (configFile >> skip) {
                 cout << "WARNING: Unknown key '" << key
@@ -91,6 +131,20 @@ void initializeConfig(ifstream& configFile) {
     }
 }
 
+/**
+ * @brief Validate configuration parameters against specs
+ * @param config Configuration to validate
+ * @return true if all parameters are within valid ranges
+ * 
+ * Validation rules (specs pg. 4-5):
+ * - numCPU: [1, 128]
+ * - scheduler: "fcfs" or "rr"
+ * - quantumCycles: >= 1
+ * - batchProcessFreq: >= 1
+ * - minIns: >= 1
+ * - maxIns: >= minIns
+ * - delaysPerExec: [0, 2^32] (automatically valid for uint32_t)
+ */
 bool isValidConfig(const Config& config) {
     if (config.numCPU < 1 || config.numCPU > 128)
         return false;
@@ -102,27 +156,43 @@ bool isValidConfig(const Config& config) {
         return false;
     if (config.minIns < 1u || config.maxIns < config.minIns)
         return false;
-    // delays-per-exec: [0, 2^32]; uint32_t already guards upper bound, only need non-negative
     return true;
 }
 
-// Handle recognized commands
+// ============================================================================
+// Command handlers
+// ============================================================================
+
+/**
+ * @brief Process and execute user commands
+ * @param command Primary command (e.g., "initialize", "screen")
+ * @param param Command parameter (e.g., "-s process1")
+ * @param isRunning Reference to main loop flag (set false to exit)
+ * 
+ * Enforces initialization gating: all commands except 'initialize' and 'exit'
+ * are blocked until isInitialized is true.
+ * 
+ * See specs pg. 1-2 for command descriptions.
+ */
 void handleCommand(const string command, const string param, bool& isRunning) {
+    // Initialization guard (specs requirement)
     if (!isInitialized && command != "initialize" && command != "exit") {
         cout << "Error: Emulator not initialized. Please run 'initialize' first." << endl;
         return;
     }
     
-    
     if (command == "exit") {
         cout << "Exiting CSOPESY Emulator..." << endl;
         isRunning = false;
-    } else if (command == "initialize") {
+    } 
+    else if (command == "initialize") {
+        // Prevent double initialization
         if (isInitialized) {
             cout << "Emulator is already initialized." << endl;
             return;
         }
 
+        // Load config.txt
         if (verboseMode) cout << "[DEBUG] Reading config.txt..." << endl;
         ifstream configFile("config.txt");
         if (!configFile.is_open()) {
@@ -131,85 +201,87 @@ void handleCommand(const string command, const string param, bool& isRunning) {
         }
         initializeConfig(configFile);
         configFile.close();
+
+        // Validate configuration
         if (!isValidConfig(config)) {
             cout << "Error: Invalid configuration parameters!" << endl;
             return;
         }
+
+        // Mark initialized and start background scheduler
         isInitialized = true;
         cout << "Configuration loaded successfully." << endl;
-        // Seed random numbers before starting scheduler thread to avoid race condition
+        
+        // Seed RNG before starting scheduler thread
         srand(static_cast<unsigned int>(time(nullptr)));
-        start_scheduler_thread(); // start background thread -lmrc
+        start_scheduler_thread();
     }
     else if (command == "screen") {
-        /*
-        if (verboseMode)
-            cout << "[DEBUG] Command "<< command <<" received with param: " << param << endl;
-        // TODO: implement screen logic
-        auto [subcommand, subparam] = parseCommand(param);
-        if (subcommand == "-s") {
-            if (verboseMode) cout << "[DEBUG] -s subcommand with param: " << subparam << endl;
-        } else if (subcommand == "-r") {
-            if (verboseMode) cout << "[DEBUG] -r subcommand with param: " << subparam << endl;
-        } else if (subcommand == "-ls") {
-            if (verboseMode) cout << "[DEBUG] -ls subcommand with param: " << subparam << endl;
-        }
-            */
-
-        
         auto [subcommand, subparam] = parseCommand(param);
 
-        // Commands for screen-s, screen-r and screen-ls
+        // screen -s <name>: Create new process manually
         if (subcommand == "-s") {
-        Process newP(next_process_id++, subparam, 5);
-        newP.instructions = {
-            {"DECLARE", {"x","10"}},
-            {"ADD", {"x","5"}},
-            {"PRINT", {"Hello from " + subparam}},
-            {"SUBTRACT", {"x","3"}},
-            {"PRINT", {"Done!"}}
-        };
+            Process newP(next_process_id++, subparam, 5);
+            newP.instructions = {
+                {"DECLARE", {"x","10"}},
+                {"ADD", {"x","5"}},
+                {"PRINT", {"Hello from " + subparam}},
+                {"SUBTRACT", {"x","3"}},
+                {"PRINT", {"Done!"}}
+            };
 
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        ready_queue.push_back(std::move(newP));
-        std::cout << "New process " << subparam << " created.\n";
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            ready_queue.push_back(std::move(newP));
+            std::cout << "New process " << subparam << " created.\n";
         }
-
+        // screen -r <name>: Attach to process console
         else if (subcommand == "-r") {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        for (auto& proc : ready_queue) {
-            if (proc.name == subparam) {
-                std::cout << "Attached to " << subparam << std::endl;
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            bool found = false;
 
-                // mini REPL
-                std::string cmd;
-                while (true) {
-                    std::cout << subparam << "> ";
-                    getline(std::cin, cmd);
+            // Search ready queue
+            for (auto& proc : ready_queue) {
+                if (proc.name == subparam) {
+                    found = true;
+                    std::cout << "Attached to " << subparam << std::endl;
 
-                    if (cmd == "process-smi") {
-                        std::cout << "Process " << proc.name << " (state=" << (int)proc.state << ")\n";
-                        for (auto& kv : proc.memory)
-                            std::cout << kv.first << "=" << kv.second << "\n";
-                    }
-                    else if (cmd == "exit") {
-                        std::cout << "Returning to main menu...\n";
-                        break;
-                    }
+                    // Mini REPL inside process screen
+                    std::string cmd;
+                    while (true) {
+                        std::cout << subparam << "> ";
+                        getline(std::cin, cmd);
+
+                        if (cmd == "process-smi") {
+                            // Display process state and variables
+                            std::cout << "Process " << proc.name 
+                                      << " (state=" << static_cast<int>(proc.state) << ")\n";
+                            for (auto& kv : proc.memory)
+                                std::cout << kv.first << "=" << kv.second << "\n";
+                        }
+                        else if (cmd == "exit") {
+                            std::cout << "Returning to main menu...\n";
+                            break;
+                        }
                     }
                     break;
                 }
             }
-        }
 
-        else if (subcommand == "-ls") {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        std::cout << "Processes:\n";
-        for (auto& p : ready_queue) std::cout << p.name << " [READY]\n";
-        for (auto& p : sleeping_queue) std::cout << p.name << " [SLEEPING]\n";
-        for (auto& p : finished_queue) std::cout << p.name << " [FINISHED]\n";
+            if (!found) {
+                std::cout << "Error: Process " << subparam << " not found.\n";
+            }
         }
-        
+        // screen -ls: List all processes
+        else if (subcommand == "-ls") {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            std::cout << "Processes:\n";
+            for (auto& p : ready_queue) 
+                std::cout << p.name << " [READY]\n";
+            for (auto& p : sleeping_queue) 
+                std::cout << p.name << " [SLEEPING]\n";
+            for (auto& p : finished_queue) 
+                std::cout << p.name << " [FINISHED]\n";
+        }
     }
     else if (command == "scheduler-start") {
         if (verboseMode) cout << "[DEBUG] Starting scheduler..." << endl;
@@ -230,11 +302,23 @@ void handleCommand(const string command, const string param, bool& isRunning) {
     }
 }
 
+// ============================================================================
+// Main entry point
+// ============================================================================
+
+/**
+ * @brief Main program loop
+ * 
+ * Displays greeting, then enters command loop:
+ * 1. Display prompt ("> ")
+ * 2. Read user input
+ * 3. Parse command and parameter
+ * 4. Execute command via handleCommand()
+ * 5. Repeat until isRunning is false
+ */
 int main() {
     bool isRunning = true;
     string input;
-
-    // srand moved to initialization block to avoid race condition
 
     showGreeting();
 
