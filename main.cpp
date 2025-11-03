@@ -43,7 +43,7 @@ void showGreeting() {
     cout << "Labarrete, Lance\n";
     cout << "Soan, Brent Jan\n";
     cout << "Tan, Anthony Andrei C.\n";
-    cout << "Last updated: October 31, 2025\n";
+    cout << "Last updated: November 3, 2025\n";
     cout << "-------------------------------------\n";
     cout << "Type 'initialize' to start, or 'help' for commands.\n\n";
 }
