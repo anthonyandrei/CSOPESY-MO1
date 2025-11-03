@@ -220,6 +220,12 @@ void execute_cpu_tick() {
  * On SLEEP, process moves to sleeping_queue.
  */
 void execute_instruction(Process& p, uint64_t current_tick) {
+    // Implement delays-per-exec: busy-wait before executing instruction
+    if (p.delay_ticks_left > 0) {
+        p.delay_ticks_left--;
+        return;  // Process remains in CPU but doesn't execute yet
+    }
+
     // Check if all instructions completed
     if (p.current_instruction >= p.instructions.size()) {
         if (verboseMode) 
@@ -278,6 +284,9 @@ void execute_instruction(Process& p, uint64_t current_tick) {
 
     // Move to next instruction
     p.current_instruction++;
+    
+    // Reset delay counter for next instruction (busy-wait per spec pg. 4)
+    p.delay_ticks_left = config.delaysPerExec;
 }
 // ============================================================================
 // Scheduler main loop

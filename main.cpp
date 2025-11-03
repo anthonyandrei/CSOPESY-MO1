@@ -194,6 +194,11 @@ bool isValidConfig(const Config& config) {
  * Enforces initialization gating: all commands except 'initialize' and 'exit'
  * are blocked until isInitialized is true.
  * 
+ * Screen subcommands:
+ * - screen -s <name>: Create new process with hardcoded test instructions
+ * - screen -r <name>: Attach to process (searches ready/sleeping/running queues, not finished)
+ * - screen -ls: List all processes with their states (ready/running/sleeping/finished)
+ * 
  * See specs pg. 1-2 for command descriptions.
  */
 void handleCommand(const string command, const string param, bool& isRunning) {
@@ -247,12 +252,15 @@ void handleCommand(const string command, const string param, bool& isRunning) {
         // screen -s <name>: Create new process manually
         if (subcommand == "-s") {
             Process newP(next_process_id++, subparam, 5);
+            // TODO (Member 2): Replace hardcoded instructions with random generation
+            // per specs pg. 3 (instruction count from config min-ins/max-ins range)
+            // Note: PRINT msg should be "Hello world from <process_name>!" per specs pg. 3 line 119
             newP.instructions = {
                 {"DECLARE", {"x","10"}},
                 {"ADD", {"x","5"}},
-                {"PRINT", {"Hello from " + subparam}},
+                {"PRINT", {"Hello world from " + subparam + "!"}},
                 {"SUBTRACT", {"x","3"}},
-                {"PRINT", {"Done!"}}
+                {"PRINT", {"Hello world from " + subparam + "!"}}
             };
 
             std::lock_guard<std::mutex> lock(queue_mutex);
@@ -263,36 +271,61 @@ void handleCommand(const string command, const string param, bool& isRunning) {
         else if (subcommand == "-r") {
             std::lock_guard<std::mutex> lock(queue_mutex);
             bool found = false;
+            Process* targetProc = nullptr;
 
-            // Search ready queue
+            // Search all queues EXCEPT finished_queue (per specs pg. 3: finished processes cannot be reattached)
             for (auto& proc : ready_queue) {
                 if (proc.name == subparam) {
+                    targetProc = &proc;
                     found = true;
-                    std::cout << "Attached to " << subparam << std::endl;
-
-                    // Mini REPL inside process screen
-                    std::string cmd;
-                    while (true) {
-                        std::cout << subparam << "> ";
-                        getline(std::cin, cmd);
-
-                        if (cmd == "process-smi") {
-                            // Display process state and variables
-                            std::cout << "Process " << proc.name 
-                                      << " (state=" << static_cast<int>(proc.state) << ")\n";
-                            for (auto& kv : proc.memory)
-                                std::cout << kv.first << "=" << kv.second << "\n";
-                        }
-                        else if (cmd == "exit") {
-                            std::cout << "Returning to main menu...\n";
-                            break;
-                        }
-                    }
                     break;
                 }
             }
-
             if (!found) {
+                for (auto& proc : sleeping_queue) {
+                    if (proc.name == subparam) {
+                        targetProc = &proc;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                for (auto& proc : cpu_cores) {
+                    if (proc.has_value() && proc.value().name == subparam) {
+                        targetProc = &proc.value();
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (found && targetProc) {
+                std::cout << "Attached to " << subparam << std::endl;
+
+                // Mini REPL inside process screen
+                std::string cmd;
+                while (true) {
+                    std::cout << subparam << "> ";
+                    getline(std::cin, cmd);
+
+                    if (cmd == "process-smi") {
+                        // Display process state and variables
+                        // TODO (Member 2): Add current instruction line, total lines, and timestamp per specs pg. 2
+                        std::cout << "Process: " << targetProc->name << "\n";
+                        std::cout << "Current instruction line: " << targetProc->current_instruction << "\n";
+                        std::cout << "Total lines of code: " << targetProc->total_instructions << "\n";
+                        std::cout << "\nVariables:\n";
+                        for (auto& kv : targetProc->memory)
+                            std::cout << "  " << kv.first << " = " << kv.second << "\n";
+                    }
+                    else if (cmd == "exit") {
+                        std::cout << "Returning to main menu...\n";
+                        break;
+                    }
+                }
+            }
+            else {
                 std::cout << "Error: Process " << subparam << " not found.\n";
             }
         }
@@ -302,6 +335,10 @@ void handleCommand(const string command, const string param, bool& isRunning) {
             std::cout << "Processes:\n";
             for (auto& p : ready_queue) 
                 std::cout << p.name << " [READY]\n";
+            for (auto& core : cpu_cores) {
+                if (core.has_value())
+                    std::cout << core.value().name << " [RUNNING]\n";
+            }
             for (auto& p : sleeping_queue) 
                 std::cout << p.name << " [SLEEPING]\n";
             for (auto& p : finished_queue) 
