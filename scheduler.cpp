@@ -18,6 +18,10 @@ extern bool verboseMode;
 // ============================================================================
 // Global scheduler state
 // ============================================================================
+constexpr int UINT16_MAX_VALUE = 65535;                ///< Maximum value for uint16 variables
+constexpr int UINT16_MIN_VALUE = 0;                    ///< Minimum value for uint16 variables
+constexpr int MAX_FOR_LOOP_DEPTH = 3;                  ///< Maximum FOR loop nesting depth per specs pg. 3
+
 std::atomic<uint64_t> global_cpu_tick(0);              ///< Global CPU tick counter
 std::atomic<bool> is_generating_processes(false);      ///< True when scheduler-start is active
 std::atomic<int> next_process_id(1);                   ///< Next process ID to assign
@@ -233,18 +237,25 @@ void execute_instruction(Process& p, uint64_t current_tick) {
         std::cout << "[" << p.name << "] " << ins.args[0] << std::endl;
     }
     else if (ins.op == "DECLARE") {
-        // Initialize variable (undeclared vars default to 0)
-        p.memory[ins.args[0]] = std::stoi(ins.args[1]);
+        // Initialize variable and clamp to uint16 range [0, 65535]
+        int value = std::stoi(ins.args[1]);
+        if (value < UINT16_MIN_VALUE) value = UINT16_MIN_VALUE;
+        if (value > UINT16_MAX_VALUE) value = UINT16_MAX_VALUE;
+        p.memory[ins.args[0]] = value;
     }
     else if (ins.op == "ADD") {
-        // Add to variable
-        // TODO: implement uint16 clamping per specs pg. 3
-        p.memory[ins.args[0]] += std::stoi(ins.args[1]);
+        // Add to variable and clamp to uint16 range [0, 65535]
+        int result = p.memory[ins.args[0]] + std::stoi(ins.args[1]);
+        if (result < UINT16_MIN_VALUE) result = UINT16_MIN_VALUE;
+        if (result > UINT16_MAX_VALUE) result = UINT16_MAX_VALUE;
+        p.memory[ins.args[0]] = result;
     }
     else if (ins.op == "SUBTRACT") {
-        // Subtract from variable
-        // TODO: implement uint16 clamping per specs pg. 3
-        p.memory[ins.args[0]] -= std::stoi(ins.args[1]);
+        // Subtract from variable and clamp to uint16 range [0, 65535]
+        int result = p.memory[ins.args[0]] - std::stoi(ins.args[1]);
+        if (result < UINT16_MIN_VALUE) result = UINT16_MIN_VALUE;
+        if (result > UINT16_MAX_VALUE) result = UINT16_MAX_VALUE;
+        p.memory[ins.args[0]] = result;
     }
     else if (ins.op == "SLEEP") {
         // Block process for specified ticks
