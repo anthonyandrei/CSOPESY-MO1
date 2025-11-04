@@ -1,3 +1,12 @@
+/**
+ * @file main.cpp
+ * @brief Main CLI shell and command interpreter for CSOPESY OS Emulator
+ * 
+ * Implements command-line interface, configuration loading, and command routing.
+ * Responsible for user interaction and dispatching commands to scheduler.
+ * 
+ */
+
 #include "config.h"
 #include "scheduler.h"
 #include <iostream>
@@ -251,7 +260,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
 
         // screen -s <name>: Create new process manually
         if (subcommand == "-s") {
-            // TODO: Clear console contents per specs pg. 3 line 156
+            // TODO (Member 2 - Lance): Clear console contents per specs pg. 3 line 156
             Process newP(next_process_id++, subparam, 5);
             // per specs pg. 3 (instruction count from config min-ins/max-ins range)
             // Note: PRINT msg should be "Hello world from <process_name>!" per specs pg. 3 line 119
@@ -301,7 +310,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
             }
 
             if (found && targetProc) {
-                // TODO: Clear console contents per specs pg. 3 line 156
+                // TODO (Member 2 - Lance): Clear console contents per specs pg. 3 line 156
                 std::cout << "Attached to " << subparam << std::endl;
 
                 // Mini REPL inside process screen
@@ -316,7 +325,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
                         std::cout << "Current instruction line: " << targetProc->current_instruction << "\n";
                         std::cout << "Total lines of code: " << targetProc->total_instructions << "\n";
                         
-                        // TODO: Print "Finished!" if process completed (specs pg. 3 lines 17-20)
+                        // Print "Finished!" if process completed (specs pg. 3 lines 17-20)
                         if (targetProc->state == ProcessState::FINISHED) {
                             std::cout << "Finished!\n";
                         }
@@ -339,7 +348,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
         else if (subcommand == "-ls") {
             std::lock_guard<std::mutex> lock(queue_mutex);
             
-            // TODO: Add CPU utilization metrics per specs pg. 4 (lines 38-54 mockup):
+            // TODO (Member 4): Add CPU utilization metrics per specs pg. 4 (lines 38-54 mockup):
             // - CPU utilization: X%
             // - Cores used: Y
             // - Cores available: Z
@@ -373,7 +382,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
         std::ofstream log("csopesy-log.txt");
         std::string logData = "";
 
-        // TODO: Add CPU utilization metrics per specs pg. 4 (same as screen -ls):
+        // TODO (Member 4): Add CPU utilization metrics per specs pg. 4 (same as screen -ls):
         // - CPU utilization: X%
         // - Cores used: Y
         // - Cores available: Z
