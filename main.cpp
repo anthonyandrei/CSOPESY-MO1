@@ -309,8 +309,7 @@ void handleCommand(const string command, const string param, bool& isRunning) {
                     getline(std::cin, cmd);
 
                     if (cmd == "process-smi") {
-                        // Display process state and variables
-                        // TODO (Member 2): Add current instruction line, total lines, and timestamp per specs pg. 2
+                        // Display process state and variables (per specs pg. 3)
                         std::cout << "Process: " << targetProc->name << "\n";
                         std::cout << "Current instruction line: " << targetProc->current_instruction << "\n";
                         std::cout << "Total lines of code: " << targetProc->total_instructions << "\n";
