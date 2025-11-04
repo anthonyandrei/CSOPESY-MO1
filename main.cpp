@@ -355,7 +355,23 @@ void handleCommand(const string command, const string param, bool& isRunning) {
     }
     else if (command == "report-util") {
         if (verboseMode) cout << "[DEBUG] Generating report..." << endl;
-        // TODO: call report generator
+
+        std::ofstream log("csopesy-log.txt");
+        std::string logData = "";
+
+        logData += "Processes:\n";
+        for(auto& p : ready_queue)
+            logData += p.name + " [READY]\n";
+        for(auto& core : cpu_cores) {
+            if(core.has_value())
+                logData += core.value().name + " [RUNNING]\n";
+        }
+        for(auto& p : sleeping_queue)
+            logData += p.name + " [SLEEPING]\n";
+        for(auto& p : finished_queue)
+            logData += p.name + " [FINISHED]\n";
+
+        log << logData;
     }
     else {
         cout << "Unknown command: " << command << endl;
