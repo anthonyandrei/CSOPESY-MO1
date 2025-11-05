@@ -21,6 +21,15 @@ extern bool verboseMode;
 constexpr int UINT16_MAX_VALUE = 65535;                ///< Maximum value for uint16 variables
 constexpr int UINT16_MIN_VALUE = 0;                    ///< Minimum value for uint16 variables
 constexpr int MAX_FOR_LOOP_DEPTH = 3;                  ///< Maximum FOR loop nesting depth per specs pg. 3
+constexpr int NUM_INSTRUCTION_TYPES = 5;               ///< Number of instruction types (PRINT, DECLARE, ADD, SUBTRACT, SLEEP)
+constexpr int PROCESS_NAME_PADDING_THRESHOLD = 10;     ///< Process IDs below this get zero-padded (p01, p02, etc.)
+constexpr int MAX_DECLARE_VALUE = 100;                 ///< Maximum random value for DECLARE instruction (0-99)
+constexpr int MAX_ARITHMETIC_OPERAND = 50;             ///< Maximum random value for ADD/SUBTRACT operands (0-49)
+constexpr int MIN_SLEEP_TICKS = 1;                     ///< Minimum sleep duration in CPU ticks
+constexpr int MAX_SLEEP_TICKS = 10;                    ///< Maximum sleep duration in CPU ticks
+constexpr int PROBABILITY_DENOMINATOR = 2;             ///< Denominator for 50% probability checks
+constexpr int REQUIRED_OPERANDS_FOR_ARITHMETIC = 3;    ///< Required operand count for ADD/SUBTRACT
+constexpr int CPU_TICK_DELAY_MS = 100;                 ///< Real-time delay per CPU tick in milliseconds
 
 std::atomic<uint64_t> global_cpu_tick(0);              ///< Global CPU tick counter
 std::atomic<bool> is_generating_processes(false);      ///< True when scheduler-start is active
@@ -61,16 +70,83 @@ void generate_new_process() {
 
     // Generate process name (p01, p02, ...)
     int pid = next_process_id++;
-    std::string pname = std::string("p") + (pid < 10 ? "0" : "") + std::to_string(pid);
+    std::string pname = std::string("p") + (pid < PROCESS_NAME_PADDING_THRESHOLD ? "0" : "") + std::to_string(pid);
 
     if (verboseMode) {
         std::cout << "\n[Scheduler] Generating process " << pname
             << " (" << num_instructions << " instructions)." << std::endl;
     }
 
+    // Create the process
+    Process p(pid, pname, num_instructions);
+    
+    // Generate random instructions
+    std::vector<std::string> var_pool = {"x", "y", "z", "counter", "sum", "temp", "result", "value"};
+    
+    for (uint32_t i = 0; i < num_instructions; i++) {
+        Instruction ins;
+        
+        // Randomly select instruction type (PRINT, DECLARE, ADD, SUBTRACT, SLEEP)
+        int instruction_type = rand() % NUM_INSTRUCTION_TYPES;
+        
+        switch (instruction_type) {
+            case 0: // PRINT
+                ins.op = "PRINT";
+                ins.args.push_back("Hello world from " + pname + "!");
+                break;
+                
+            case 1: // DECLARE
+                ins.op = "DECLARE";
+                ins.args.push_back(var_pool[rand() % var_pool.size()]);
+                ins.args.push_back(std::to_string(rand() % MAX_DECLARE_VALUE)); // Random value 0-99
+                break;
+                
+            case 2: // ADD (var1, var2/value, var3/value)
+                ins.op = "ADD";
+                ins.args.push_back(var_pool[rand() % var_pool.size()]); // var1
+                // var2/value - 50% chance variable, 50% chance literal
+                if (rand() % PROBABILITY_DENOMINATOR == 0) {
+                    ins.args.push_back(var_pool[rand() % var_pool.size()]);
+                } else {
+                    ins.args.push_back(std::to_string(rand() % MAX_ARITHMETIC_OPERAND));
+                }
+                // var3/value - 50% chance variable, 50% chance literal
+                if (rand() % PROBABILITY_DENOMINATOR == 0) {
+                    ins.args.push_back(var_pool[rand() % var_pool.size()]);
+                } else {
+                    ins.args.push_back(std::to_string(rand() % MAX_ARITHMETIC_OPERAND));
+                }
+                break;
+                
+            case 3: // SUBTRACT (var1, var2/value, var3/value)
+                ins.op = "SUBTRACT";
+                ins.args.push_back(var_pool[rand() % var_pool.size()]); // var1
+                // var2/value - 50% chance variable, 50% chance literal
+                if (rand() % PROBABILITY_DENOMINATOR == 0) {
+                    ins.args.push_back(var_pool[rand() % var_pool.size()]);
+                } else {
+                    ins.args.push_back(std::to_string(rand() % MAX_ARITHMETIC_OPERAND));
+                }
+                // var3/value - 50% chance variable, 50% chance literal
+                if (rand() % PROBABILITY_DENOMINATOR == 0) {
+                    ins.args.push_back(var_pool[rand() % var_pool.size()]);
+                } else {
+                    ins.args.push_back(std::to_string(rand() % MAX_ARITHMETIC_OPERAND));
+                }
+                break;
+                
+            case 4: // SLEEP
+                ins.op = "SLEEP";
+                ins.args.push_back(std::to_string(MIN_SLEEP_TICKS + (rand() % MAX_SLEEP_TICKS))); // Sleep 1-10 ticks
+                break;
+        }
+        
+        p.instructions.push_back(ins);
+    }
+
     // Add to ready queue (thread-safe)
     std::lock_guard<std::mutex> lock(queue_mutex);
-    ready_queue.emplace_back(pid, pname, num_instructions);
+    ready_queue.push_back(std::move(p));
 }
 
 // ============================================================================
@@ -287,7 +363,7 @@ void execute_instruction(Process& p, uint64_t current_tick) {
     else if (ins.op == "ADD") {
         // ADD (var1, var2/value, var3/value): var1 = var2/value + var3/value
         // Auto-initialize variables to 0 if not declared (specs pg. 3)
-        if (ins.args.size() < 3) {
+        if (ins.args.size() < REQUIRED_OPERANDS_FOR_ARITHMETIC) {
             if (verboseMode)
                 std::cout << "[" << p.name << "] ERROR: ADD requires 3 operands\n";
             p.current_instruction++;
@@ -333,7 +409,7 @@ void execute_instruction(Process& p, uint64_t current_tick) {
     else if (ins.op == "SUBTRACT") {
         // SUBTRACT (var1, var2/value, var3/value): var1 = var2/value - var3/value
         // Auto-initialize variables to 0 if not declared (specs pg. 3)
-        if (ins.args.size() < 3) {
+        if (ins.args.size() < REQUIRED_OPERANDS_FOR_ARITHMETIC) {
             if (verboseMode)
                 std::cout << "[" << p.name << "] ERROR: SUBTRACT requires 3 operands\n";
             p.current_instruction++;
@@ -457,7 +533,7 @@ void scheduler_loop() {
         }
 
         // Simulate CPU tick delay (100ms real time = 1 CPU tick)
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(CPU_TICK_DELAY_MS));
     }
 }
 
