@@ -278,16 +278,22 @@ void handleScreenCommand(const string& param) {
         
         Process newP(next_process_id++, subparam, 10);
         newP.instructions = {
-            {"DECLARE", {"x","10"}},
-            {"DECLARE", {"y","5"}},
-            {"DECLARE", {"counter","0"}},
-            {"FOR", {"3", "3"}},              // Loop 3 times over next 3 instructions
-            {"ADD", {"x","x","y"}},           // x = x + y
-            {"ADD", {"counter","counter","1"}},  // counter++
-            {"PRINT", {"Iteration: +counter, x = +x"}},
-            {"SUBTRACT", {"x","x","3"}},      // After loop: x = x - 3
-            {"PRINT", {"Final: x = +x, counter = +counter"}},
-            {"PRINT", {}}                      // Default message: "Hello world from [process]!"
+            //{"DECLARE", {"x","10"}},
+            //{"DECLARE", {"y","5"}},
+            //{"DECLARE", {"counter","0"}},
+            //{"FOR", {"3", "3"}},              // Loop 3 times over next 3 instructions
+            //{"ADD", {"x","x","y"}},           // x = x + y
+            //{"ADD", {"counter","counter","1"}},  // counter++
+            //{"PRINT", {"Iteration: +counter, x = +x"}},
+            //{"SUBTRACT", {"x","x","3"}},      // After loop: x = x - 3
+            //{"PRINT", {"Final: x = +x, counter = +counter"}},
+            //{"PRINT", {}}                      // Default message: "Hello world from [process]!"
+
+            // Test case 5
+            { "DECLARE", { "x", "0" } },
+            { "FOR", { std::to_string(config.minIns), "2" } },
+            { "PRINT", { "Value from: +x" } },
+            { "ADD", { "x", "x", std::to_string(rand() % 10 + 1) } },
         };
 
         std::lock_guard<std::mutex> lock(queue_mutex);
