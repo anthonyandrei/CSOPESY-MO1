@@ -480,6 +480,7 @@ void execute_instruction(Process& p, uint64_t current_tick) {
         // Block process for specified ticks
         p.state = ProcessState::SLEEPING;
         p.sleep_until_tick = current_tick + std::stoi(ins.args[0]);
+        p.current_instruction++;  // Move to next instruction before sleeping
         return;  // Caller will move to sleeping_queue and reset core
     }
     else if (ins.op == "FOR") {
